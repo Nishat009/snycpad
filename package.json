@@ -1,0 +1,19 @@
+{
+  "name": "syncpad",
+  "private": true,
+  "description": "Real-time collaborative code snippet & whiteboard tool",
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n server,client -c cyan,magenta \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w server && npm run build -w client",
+    "start": "concurrently -k -n server,client -c cyan,magenta \"npm run start -w server\" \"npm run start -w client\"",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w client",
+    "test:smoke": "node scripts/smoke.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}

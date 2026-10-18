@@ -1,0 +1,63 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, monospace;
+  --color-ink-950: #07090f;
+  --color-ink-900: #0c0f17;
+  --color-ink-850: #10141e;
+  --color-ink-800: #151a26;
+  --color-ink-700: #1f2636;
+  --color-ink-600: #2b3448;
+  --color-accent: #7c9cff;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-ink-950);
+  color: #e6e9f2;
+}
+
+.bg-grid {
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.035) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+/* ── Remote cursors inside Monaco (colors are injected per client) ── */
+.y-selection {
+  border-radius: 2px;
+}
+.y-cursor {
+  position: relative;
+  border-left: 2px solid;
+  margin-left: -1px;
+  margin-right: -1px;
+  pointer-events: none;
+}
+.y-cursor::after {
+  position: absolute;
+  top: -1.35em;
+  left: -2px;
+  padding: 1px 6px;
+  border-radius: 4px 4px 4px 0;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  color: #0b0d12;
+  z-index: 10;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.animate-fade-in {
+  animation: fade-in 0.25s ease-out both;
+}

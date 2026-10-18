@@ -1,28 +1,125 @@
-# SyncPad — Real-Time Collaborative Code & Whiteboard
+# SyncPad
 
-A collaborative code editor (Monaco, the VS Code editor) plus a shared whiteboard. Everyone in a room edits the same document at the same time. Concurrent edits are merged with **Yjs CRDTs**, so no one's work gets lost or overwritten.
+SyncPad is a real-time collaborative workspace for writing code and sketching ideas together. Create a room, invite collaborators, edit code in a Monaco editor, and draw on a shared whiteboard. Yjs CRDT synchronization merges simultaneous edits and reconnects missed changes; MongoDB stores room and document state between sessions.
 
-**Stack:** Next.js 15 (App Router) · React 19 · Tailwind v4 · Monaco · Socket.io · Express · Yjs · MongoDB (Mongoose) · JWT
+**Stack:** Next.js 15 (App Router), React 19, Tailwind CSS 4, Monaco, Socket.io, Express, Yjs, MongoDB (Mongoose), and JWT.
 
----
+## Features
 
-## Quick start
+- Account registration and login with password hashing and HTTP-only authentication cookies.
+- Public and private rooms, invitations by account email, member removal, and live online presence.
+- A shared Monaco code editor with language selection, remote cursors, and per-user undo.
+- A collaborative whiteboard whose strokes synchronize with the room.
+- Realtime Yjs document synchronization, including reconnect recovery and debounced MongoDB persistence.
+- Room lifecycle management, idle-session cleanup, configurable retention, and graceful shutdown.
 
-Requirements: Node 20+ and MongoDB running on `mongodb://127.0.0.1:27017`.
+## Requirements
 
-```bash
-npm install
-cp server/.env.example server/.env   # adjust if needed
-npm run dev                          # server :4000 + client :3000
-```
+- Node.js 20 or later and npm.
+- MongoDB running locally or reachable through a MongoDB connection URI.
+- Internet access for the Monaco editor, which loads from the jsDelivr CDN by default.
 
-Open http://localhost:3000, create an account, and create a room. To try collaboration, open the room link in a second browser profile or an incognito window and sign in as a different user.
+## Installation and local development
 
-```bash
-npm run test:smoke     # end-to-end checks against the running server
-npm run typecheck
-npm run build
-```
+1. Clone the repository and enter its directory:
+
+   ```sh
+   git clone https://github.com/Nishat009/snycpad.git
+   cd snycpad
+   ```
+
+2. Install dependencies from the committed lockfile:
+
+   ```sh
+   npm ci
+   ```
+
+3. Start MongoDB. The default connection is `mongodb://127.0.0.1:27017/syncpad`. To use a different database, set `MONGO_URI` in the server environment file.
+
+4. Create the server environment file:
+
+   ```sh
+   # Windows PowerShell
+   Copy-Item server/.env.example server/.env
+
+   # macOS / Linux
+   cp server/.env.example server/.env
+   ```
+
+   Review the values in `server/.env`. For local development, the defaults use port `4000`, the local MongoDB URI, and the client origins on port `3000`. Set `JWT_SECRET` to a long, random value, especially outside local development.
+
+5. Optionally configure the client. The defaults already connect the Next.js API proxy to `http://localhost:4000` and the browser socket to the current host on port `4000`. If either service runs elsewhere, copy `client/.env.example` to `client/.env.local` and set `API_URL` and/or `NEXT_PUBLIC_SOCKET_URL` to the appropriate addresses.
+
+6. Start both applications:
+
+   ```sh
+   npm run dev
+   ```
+
+   Open [http://localhost:3000](http://localhost:3000), register an account, and create a room. To try collaboration, open the room from another browser profile or an incognito window and sign in with another account.
+
+## Configuration
+
+Server settings belong in `server/.env`:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PORT` | `4000` | Express and Socket.io port |
+| `MONGO_URI` | `mongodb://127.0.0.1:27017/syncpad` | MongoDB connection |
+| `JWT_SECRET` | Development-only fallback | Signing secret; must be explicitly set in production |
+| `CLIENT_ORIGIN` | `http://localhost:3000,http://127.0.0.1:3000` | Comma-separated browser origins allowed by CORS |
+| `PERSIST_DEBOUNCE_MS` | `1500` | Quiet period before persisting room edits |
+| `PERSIST_MAX_WAIT_MS` | `10000` | Maximum wait before persisting during continuous edits |
+| `SESSION_IDLE_MINUTES` | `5` | How long an empty room stays in memory before it is flushed and unloaded |
+| `SOCKET_IDLE_MINUTES` | `30` | Inactivity timeout for a connected user |
+| `ROOM_TTL_DAYS` | `30` | Delete rooms untouched for this many days; `0` disables expiry |
+
+Client settings belong in `client/.env.local` when defaults are not suitable:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `API_URL` | `http://localhost:4000` | Server-side destination for the Next.js `/api/*` proxy |
+| `NEXT_PUBLIC_SOCKET_URL` | Current browser host on port `4000` | Socket.io server URL used in the browser |
+
+When deploying across domains, configure `API_URL`, `NEXT_PUBLIC_SOCKET_URL`, and `CLIENT_ORIGIN` to match your frontend and backend addresses. Use HTTPS/WSS and a strong, private `JWT_SECRET` in production.
+
+## Commands
+
+Run from the repository root:
+
+| Command | Purpose |
+|---|---|
+| `npm run dev` | Start the API server on port 4000 and web app on port 3000 |
+| `npm run typecheck` | Type-check both workspaces |
+| `npm run build` | Build the server and web app |
+| `npm run start` | Start both built applications |
+| `npm run test:smoke` | Exercise the API and realtime behavior against a running server |
+
+The smoke test creates test accounts and rooms in the configured database. Run it against a development or dedicated test database, not production. Start the server with `npm run dev` in one terminal, then run `npm run test:smoke` in another.
+
+## Production build
+
+1. Set production environment variables, including `NODE_ENV=production`, `JWT_SECRET`, `MONGO_URI`, and the deployed client origin. Configure the client environment values for the deployed server as well.
+2. Install dependencies with `npm ci`.
+3. Build both workspaces using `npm run build`.
+4. Start both processes using `npm run start`, or run the server and client workspace start scripts under your process manager.
+
+The server refuses to start in production with its development fallback JWT secret. Use a process manager and configure MongoDB backups and network access for your deployment.
+
+## API and realtime overview
+
+REST API calls use `/api/*`; the Next.js app proxies them to the server so authentication cookies remain first-party.
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/api/auth/register`, `/api/auth/login`, `/api/auth/logout` | Account and session management |
+| `GET` | `/api/auth/me`, `/api/auth/socket-token` | Current account and short-lived socket token |
+| `GET`, `POST` | `/api/rooms` | List accessible rooms and create a room |
+| `GET`, `PATCH`, `DELETE` | `/api/rooms/:code` | Open, update, or delete a room |
+| `POST`, `DELETE` | `/api/rooms/:code/members`, `/api/rooms/:code/members/:userId` | Invite, remove, or leave a room |
+| `GET` | `/api/health` | Server health and live connection counts |
+
+Socket.io events include `room:join`, `sync:update`, `awareness:update`, `presence:heartbeat`, `room:updated`, and `room:ended`. Private-room access is checked on both HTTP requests and socket joins.
 
 ---
 
